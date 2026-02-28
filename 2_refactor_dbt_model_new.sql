@@ -29,7 +29,7 @@ customer_orders_data as (
 	select
 		co0.customer_id,
 		co0.order_month,
-		col0.prev_order_month,
+		COALESCE(co_1m.order_month, col0.order_month) as prev_order_month,
 		co0.monthly_orders,
 		co0.monthly_revenue,
 		co0.avg_order_value,
@@ -41,16 +41,16 @@ customer_orders_data as (
 	from customer_orders co0
 	left join {{ this }} as co_1m on 1=1
 		and co_1m.customer_id=co0.customer_id
-		and co_1m.order_month=co0.order_month + INTERVAL '1 month'
+		and co_1m.order_month=co0.order_month - INTERVAL '1 month'
 	left join customer_orders as co_1m_new on 1=1
 		and co_1m_new.customer_id=co0.customer_id
-		and co_1m_new.order_month=co0.order_month + INTERVAL '1 month'
+		and co_1m_new.order_month=co0.order_month - INTERVAL '1 month'
 	left join {{ this }} as co_1y on 1=1
 		and co_1y.customer_id=co0.customer_id
-		and co_1y.order_month=co0.order_month + INTERVAL '1 year'
+		and co_1y.order_month=co0.order_month - INTERVAL '1 year'
 	left join customer_orders as co_1y_new on 1=1
 		and co_1y_new.customer_id=co0.customer_id
-		and co_1y_new.order_month=co0.order_month + INTERVAL '1 year'
+		and co_1y_new.order_month=co0.order_month - INTERVAL '1 year'
 	left join customer_orders_last as col0 on 1=1
 		and col0.customer_id=co0.customer_id
 )
@@ -66,7 +66,7 @@ select
 	cod0.prev_year_orders,
 	
 	CASE 
-		WHEN cod0.prev_month_orders IS NULL OR cod0.prev_month_orders = 0 
+		WHEN NULLIF(cod0.prev_month_orders,0) = 0
 		THEN NULL
 		ELSE ROUND(
 			(cod0.monthly_orders - cod0.prev_month_orders) * 100.0 / cod0.prev_month_orders, 
@@ -75,7 +75,7 @@ select
 	END AS orders_mom_growth_pct,
 	
 	CASE 
-		WHEN cod0.prev_month_revenue IS NULL OR cod0.prev_month_revenue = 0 
+		WHEN NULLIF(cod0.prev_month_revenue,0) = 0
 		THEN NULL
 		ELSE ROUND(
 			(cod0.monthly_revenue - cod0.prev_month_revenue) * 100.0 / cod0.prev_month_revenue, 
@@ -84,7 +84,7 @@ select
 	END AS revenue_mom_growth_pct,
 	
 	CASE 
-		WHEN cod0.prev_avg_order_value IS NULL OR cod0.prev_avg_order_value = 0 
+		WHEN NULLIF(cod0.prev_avg_order_value,0) = 0
 		THEN NULL
 		ELSE ROUND(
 			(cod0.avg_order_value - cod0.prev_avg_order_value) * 100.0 / cod0.prev_avg_order_value, 
@@ -93,8 +93,7 @@ select
 	END AS aov_mom_growth_pct,
 	
 	CASE 
-		WHEN cod0.prev_year_orders IS NULL 
-		OR cod0.prev_year_orders = 0 
+		WHEN NULLIF(cod0.prev_year_orders,0) = 0 
 		THEN NULL
 		ELSE ROUND(
 			(cod0.monthly_orders - cod0.prev_year_orders) * 100.0 / cod0.prev_year_orders, 
